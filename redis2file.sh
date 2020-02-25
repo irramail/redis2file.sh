@@ -10,6 +10,7 @@ then
   redis-cli get m4a | sed "s/|/\n/g" | sed "s/^.*,//" >  linesM4a.b64
   for  i in `cat linesM4a.b64`; do echo $i | base64 -d > m4a/hi.wav; done
   redis-cli del m4a
+  redis-cli set stext ""
 fi
 done
 
@@ -22,9 +23,36 @@ then
   BTEXT=`redis-cli get text`
   rm -f TEXT_*
   redis-cli get text | sed "s/|/\n/g" | sed "s/ /_/g" >  lines.txt
+  sed -i "s/^---.*$//g" lines.txt
+  sed -i "/^$/d" lines.txt
   for  i in `cat lines.txt`; do let COUNTER=$COUNTER+1; echo $i | sed "s/_/ /g" > TEXT_"$COUNTER"; done
   redis-cli set btext "$BTEXT"
   redis-cli del text
+fi
+done
+
+keybgcount=$(redis-cli keys "bgcounter")
+for key in $keybgcount
+do
+if [[ "$key" == "bgcounter" ]]
+then
+color=`redis-cli get color`
+rm -f canvas.jpg
+convert -background "$color"ff -fill white -gravity center -geometry +0+0 -size 1920x1080  caption:" " ~/blank/blank1920x1080.jpg +swap -gravity south -composite ~/canvas.jpg
+
+redis-cli set svg ""
+
+count=`redis-cli get bgcounter`
+for i in `seq 1 $count`
+do
+redis-cli append svg `base64 canvas.jpg | tr -d '\n'`
+if [ "$i" -ne "$count" ]
+then
+redis-cli append svg "|"
+fi
+done
+
+redis-cli del bgcounter
 fi
 done
 
@@ -33,6 +61,8 @@ for key in $keysvg
 do
 if  [[ "$key" == "svg" ]]
 then
+  ypercent=`redis-cli get ypercent`
+  color=`redis-cli get color`
   ZERO="0"
   COUNTER=0
   redis-cli get svg | sed "s/|/\n/g" | sed "s/^.*,//" >  lines.b64
@@ -42,16 +72,19 @@ then
   do
     let COUNTER=$COUNTER+1; test $COUNTER -gt 9 && ZERO=''; echo $i | base64 -d > tmp_f_"$ZERO$COUNTER".jpg;
     #rotate
+    isexifrotate=""
     isexifrotate=`identify -format '%[orientation]' tmp_f_"$ZERO$COUNTER".jpg`
+    echo isexif
     echo $isexifrotate
-    if [ "$isexifrotate" == "RightTop" ]
+    echo isexifend
+    if [ "$isexifrotate" == "RightTop" ] 
     then
 	convert  ~/tmp_f_"$ZERO$COUNTER".jpg -rotate 90 ~/rotate_tmp_f_"$ZERO$COUNTER".jpg
 	 mv -f ~/rotate_tmp_f_"$ZERO$COUNTER".jpg ~/tmp_f_"$ZERO$COUNTER".jpg
     fi
-    if [ "$isexifrotate" == "LeftBottom" ]
+    if [ "$isexifrotate" == "LeftBottom" ] 
     then
-	convert  ~/tmp_f_"$ZERO$COUNTER".jpg -rotate 270 ~/rotate_tmp_f_"$ZERO$COUNTER".jpg
+	convert  ~/tmp_f_"$ZERO$COUNTER".jpg -rotate 270 ~/rotate_tmp_f_"$ZERO$COUNTER".jpg 
 	mv -f ~/rotate_tmp_f_"$ZERO$COUNTER".jpg ~/tmp_f_"$ZERO$COUNTER".jpg
     fi
 #BottomRight
@@ -66,13 +99,16 @@ then
     then
 	TEXT=`cat TEXT_"$COUNTER"`
 	LENGTH=0;
+	FIRST_SIGN="|"
 	LENGTH=`echo $TEXT | sed "s/ //g" | wc -c`
+	test "$LENGTH" -gt "1" && FIRST_SIGN=`echo $TEXT | head -c 1`
+	test "$FIRST_SIGN" == "~" && LENGTH=0
 	echo $LENGTH
     #test -f TEXT_"$COUNTER" && convert -background '#00000080' -fill white -pointsize 200 label:"$TEXT" miff:-  | composite -gravity south -geometry +0+400 - ~/tmp_f_"$ZERO$COUNTER".jpg ~/f_"$ZERO$COUNTER".jpg || mv ~/tmp_f_"$ZERO$COUNTER".jpg ~/f_"$ZERO$COUNTER".jpg
     if [ "$LENGTH" -gt "1" ]
     then
     echo more
-    width=`identify -format %w ~/tmp_f_"$ZERO$COUNTER".jpg`; height=`identify -format %h ~/tmp_f_"$ZERO$COUNTER".jpg`; convert -background '#0008' -fill white -font Roboto-Condensed-Regular -gravity center -geometry +0+$[height/10] -size $[width-width/10]x$[height/10]  caption:"$TEXT" ~/tmp_f_"$ZERO$COUNTER".jpg +swap -gravity south -composite ~/f_"$ZERO$COUNTER".jpg
+    width=`identify -format %w ~/tmp_f_"$ZERO$COUNTER".jpg`; height=`identify -format %h ~/tmp_f_"$ZERO$COUNTER".jpg`; convert -background '#0008' -fill white -font Roboto-Condensed-Regular -gravity center -geometry +0+$[height*ypercent/100-height/20] -size $[width-width/10]x$[height/10]  caption:"$TEXT" ~/tmp_f_"$ZERO$COUNTER".jpg +swap -gravity south -composite ~/f_"$ZERO$COUNTER".jpg
 	else
 		mv ~/tmp_f_"$ZERO$COUNTER".jpg ~/f_"$ZERO$COUNTER".jpg
     fi
@@ -91,7 +127,8 @@ then
     test $height2 -gt $heightFirst && height2=$heightFirst
     test $width2 -gt $widthFirst && width2=$widthFirst
     #convert ~/f_"$ZERO$COUNTER".jpg -resize 1280x1280\> -size 1280x1280 xc:blue +swap -gravity center  -composite ~/ff_"$ZERO$COUNTER".jpg
-    convert  ~/f_"$ZERO$COUNTER".jpg -resize "$width2"x"$height2>" -gravity center -background black -extent "$widthFirst"x"$heightFirst" ~/ff_"$ZERO$COUNTER".jpg
+    #color=`redis-cli get color`
+    convert  ~/f_"$ZERO$COUNTER".jpg -resize "$width2"x"$height2>" -gravity center -background "$color" -extent "$widthFirst"x"$heightFirst" ~/ff_"$ZERO$COUNTER".jpg
     mv -f ~/ff_"$ZERO$COUNTER".jpg ~/f_"$ZERO$COUNTER".jpg
     fi
 
@@ -110,7 +147,8 @@ identify ~/f_"$ZERO$COUNTER".jpg
 
   rm -f ~/m4a/hi.mp4
   ffmpeg -i ~/m4a/hi.wav ~/m4a/hi.mp4
-  ffmpeg -y -r 0.25 -f image2 -s ${width1}x${height1} -i f_cropWH_%02d.jpg -i ~/m4a/hi.mp4 -vcodec libx264 -b 4M  -acodec copy ~/mp4Downloads/"$filenameMp4"
+  timeOnSec=`redis-cli get sec`
+  ffmpeg -y -r ${timeOnSec} -f image2 -s ${width1}x${height1} -i f_cropWH_%02d.jpg -i ~/m4a/hi.mp4 -vcodec libx264 -b 4M  -acodec copy ~/mp4Downloads/"$filenameMp4"
   redis-cli append mp4AllFilenames ",$filenameMp4"
   redis-cli append mp4NewFilenames ",$filenameMp4"
   rm *.jpg
