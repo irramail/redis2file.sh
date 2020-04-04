@@ -24,6 +24,7 @@ then
   rm -f TEXT_*
   redis-cli get text | sed "s/|/\n/g" | sed "s/ /_/g" >  lines.txt
   sed -i "s/^---.*$//g" lines.txt
+  sed -i "s/\[\[.*\]\]//" lines.txt
   sed -i "/^$/d" lines.txt
   for  i in `cat lines.txt`; do let COUNTER=$COUNTER+1; echo $i | sed "s/_/ /g" > TEXT_"$COUNTER"; done
   redis-cli set btext "$BTEXT"
@@ -77,14 +78,14 @@ then
     echo isexif
     echo $isexifrotate
     echo isexifend
-    if [ "$isexifrotate" == "RightTop" ] 
+    if [ "$isexifrotate" == "RightTop" ]
     then
 	convert  ~/tmp_f_"$ZERO$COUNTER".jpg -rotate 90 ~/rotate_tmp_f_"$ZERO$COUNTER".jpg
 	 mv -f ~/rotate_tmp_f_"$ZERO$COUNTER".jpg ~/tmp_f_"$ZERO$COUNTER".jpg
     fi
-    if [ "$isexifrotate" == "LeftBottom" ] 
+    if [ "$isexifrotate" == "LeftBottom" ]
     then
-	convert  ~/tmp_f_"$ZERO$COUNTER".jpg -rotate 270 ~/rotate_tmp_f_"$ZERO$COUNTER".jpg 
+	convert  ~/tmp_f_"$ZERO$COUNTER".jpg -rotate 270 ~/rotate_tmp_f_"$ZERO$COUNTER".jpg
 	mv -f ~/rotate_tmp_f_"$ZERO$COUNTER".jpg ~/tmp_f_"$ZERO$COUNTER".jpg
     fi
 #BottomRight
@@ -117,38 +118,48 @@ then
     fi
     #sleep 1
 
-    if [ "$COUNTER" -gt "1" ]
-    then
     let width2=`identify -format %w ~/f_"$ZERO$COUNTER".jpg`
     let height2=`identify -format %h ~/f_"$ZERO$COUNTER".jpg`
-    ls *.jpg
-    let widthFirst=`identify -format %w ~/f_cropWH_01.jpg`
-    let heightFirst=`identify -format %h ~/f_cropWH_01.jpg`
-    test $height2 -gt $heightFirst && height2=$heightFirst
-    test $width2 -gt $widthFirst && width2=$widthFirst
-    #convert ~/f_"$ZERO$COUNTER".jpg -resize 1280x1280\> -size 1280x1280 xc:blue +swap -gravity center  -composite ~/ff_"$ZERO$COUNTER".jpg
-    #color=`redis-cli get color`
-    convert  ~/f_"$ZERO$COUNTER".jpg -resize "$width2"x"$height2>" -gravity center -background "$color" -extent "$widthFirst"x"$heightFirst" ~/ff_"$ZERO$COUNTER".jpg
-    mv -f ~/ff_"$ZERO$COUNTER".jpg ~/f_"$ZERO$COUNTER".jpg
+
+    if [ "$COUNTER" -gt "1" ]
+    then
+      #let width2=`identify -format %w ~/f_"$ZERO$COUNTER".jpg`
+      #let height2=`identify -format %h ~/f_"$ZERO$COUNTER".jpg`
+      ls *.jpg
+      let widthFirst=`identify -format %w ~/f_cropWH_01.jpg`
+      let heightFirst=`identify -format %h ~/f_cropWH_01.jpg`
+      test $height2 -gt $heightFirst && height2=$heightFirst
+      test $width2 -gt $widthFirst && width2=$widthFirst
+      #convert ~/f_"$ZERO$COUNTER".jpg -resize 1280x1280\> -size 1280x1280 xc:blue +swap -gravity center  -composite ~/ff_"$ZERO$COUNTER".jpg
+      #color=`redis-cli get color`
+      convert  ~/f_"$ZERO$COUNTER".jpg -resize "$width2"x"$height2>" -gravity center -background "$color"ff -extent "$widthFirst"x"$heightFirst" ~/ff_"$ZERO$COUNTER".jpg
+      mv -f ~/ff_"$ZERO$COUNTER".jpg ~/f_"$ZERO$COUNTER".jpg
     fi
 
     echo ~/f_"$ZERO$COUNTER".jpg
-identify ~/f_"$ZERO$COUNTER".jpg
+    identify ~/f_"$ZERO$COUNTER".jpg
     echo $width2 $height2,  firstwidth: $widthFirst, firstheight: $heightFirst
+    echo bla bla bla
 
-    test $[height2 % 2] -eq 1 && convert ~/f_"$ZERO$COUNTER".jpg -crop ${width2}x$[height2-1]+0+0 ~/f_cropH_"$ZERO$COUNTER".jpg || mv ~/f_"$ZERO$COUNTER".jpg  ~/f_cropH_"$ZERO$COUNTER".jpg
-    test $[width2 % 2] -eq 1 && convert ~/f_cropH_"$ZERO$COUNTER".jpg -crop $[width2-1]x${height2}+0+0 ~/f_cropWH_"$ZERO$COUNTER".jpg || mv ~/f_cropH_"$ZERO$COUNTER".jpg ~/f_cropWH_"$ZERO$COUNTER".jpg
+    identify ~/f_"$ZERO$COUNTER".jpg
+    #test $[height2 % 2] -eq 1 && convert ~/f_"$ZERO$COUNTER".jpg -crop ${width2}x$[height2-1]+0+0 ~/f_cropH_"$ZERO$COUNTER".jpg || mv ~/f_"$ZERO$COUNTER".jpg  ~/f_cropH_"$ZERO$COUNTER".jpg
+    test $[heightFirst % 2] -eq 1 && convert ~/f_"$ZERO$COUNTER".jpg -crop ${widthFirst}x$[heightFirst-1]+0+0 ~/f_cropH_"$ZERO$COUNTER".jpg || mv ~/f_"$ZERO$COUNTER".jpg  ~/f_cropH_"$ZERO$COUNTER".jpg
+
+    identify ~/f_cropH_"$ZERO$COUNTER".jpg
+    test $[wsdthFirst % 2] -eq 1 && convert ~/f_cropH_"$ZERO$COUNTER".jpg -crop $[widthFirst-1]x${heightFirst}+0+0 ~/f_cropWH_"$ZERO$COUNTER".jpg || mv ~/f_cropH_"$ZERO$COUNTER".jpg ~/f_cropWH_"$ZERO$COUNTER".jpg
+
+    identify ~/f_cropWH_"$ZERO$COUNTER".jpg
 
   done
   redis-cli del svg
   width1=`identify -format %w ~/f_cropWH_01.jpg`; height1=`identify -format %h ~/f_cropWH_01.jpg`;
-
+  cp -f ~/f_cropWH_01.jpg ~/res_aaaaaaaaa.jpg
   filenameMp4=OUTPUT_"$RANDOM"_"$MP4COUNTER".mp4
 
   rm -f ~/m4a/hi.mp4
-  ffmpeg -i ~/m4a/hi.wav ~/m4a/hi.mp4
+  ffmpeg -loglevel quiet -y -i ~/m4a/hi.wav ~/m4a/hi.mp4
   timeOnSec=`redis-cli get sec`
-  ffmpeg -y -r ${timeOnSec} -f image2 -s ${width1}x${height1} -i f_cropWH_%02d.jpg -i ~/m4a/hi.mp4 -vcodec libx264 -b 4M  -acodec copy ~/mp4Downloads/"$filenameMp4"
+  ffmpeg -loglevel quiet -y -r ${timeOnSec} -f image2 -s ${width1}x${height1} -i f_cropWH_%02d.jpg -i ~/m4a/hi.mp4 -vcodec libx264 -b 4M  -acodec copy ~/mp4Downloads/"$filenameMp4"
   redis-cli append mp4AllFilenames ",$filenameMp4"
   redis-cli append mp4NewFilenames ",$filenameMp4"
   rm *.jpg
