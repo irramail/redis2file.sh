@@ -1,6 +1,9 @@
 <!doctype html>
 <html>
 <head>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <style>
   body { background-color: rgb(180, 180, 180); color: white; }
   img { border: 1px solid white; margin: 5px; }
@@ -15,6 +18,12 @@
 <div id="text">
 <textarea rows="30" cols="130" name="text" id="textLines" wrap="off"></textarea>
 <span id="counter"></span>
+<div>
+    <input type="button" value="Without text"
+            onClick="cleanText()">
+    <input type="button" value="Remove ---"
+            onClick="cleanMinuses()">
+</div>
 <div><a href="/m4a/hi.wav" download>Download</a></div>
 <div id="audioText">
 <audio id="track" controls>
@@ -124,7 +133,21 @@ xhttpSetBgCounter.setRequestHeader("Content-Type", "application/json");
 xhttpSetBgCounter.send(JSON.stringify({"jsonrpc": "2.0", "method": "set_bgcounter", "id":1, "params": [document.getElementById('counter').innerHTML] }));
 }
 
-window.onload = function() { 
+function cleanText()
+{
+  var txts = document.getElementById('textLines');
+
+  txts.value = '~' + txts.value.replace(/\n|\./g, '\n--- ').replace(/\n--- \n/g, '\n\n');
+}
+
+function cleanMinuses()
+{
+  var txts = document.getElementById('textLines');
+
+  txts.value = txts.value.replace(/--- /g, '').replace(/~/g, '');
+}
+
+window.onload = function() {
 var xhttpGetVoice = new XMLHttpRequest();
 
 xhttpGetVoice.onreadystatechange = function() {
@@ -181,7 +204,7 @@ xhttpGetYpercent.setRequestHeader("Content-Type", "application/json");
 xhttpGetYpercent.send(JSON.stringify({"jsonrpc": "2.0", "method": "get_ypercent", "id":1, "params": [] }));
 
 
-                var trackTimerVar = setInterval(trackTimer, 5000);
+                var trackTimerVar = setInterval(trackTimer, 10000);
 
                 function trackTimer()
                 {
@@ -193,11 +216,11 @@ xhttpGetYpercent.send(JSON.stringify({"jsonrpc": "2.0", "method": "get_ypercent"
 				var track = document.getElementById('track');
 				if (track.hidden) {
 			        var audioText = document.getElementById('audioText');
-				
+
 			       innerHTML='<audio id="track" controls><source src="/m4a/hi.wav" type="audio/wav">Your browser does not support the audio element.</audio>';
 				audioText.innerHTML=innerHTML;
 				}
-				
+
 			    }
                         }
                     };
@@ -207,7 +230,7 @@ xhttpGetYpercent.send(JSON.stringify({"jsonrpc": "2.0", "method": "get_ypercent"
                 }
 
  var textTimer = {};
-  var txts = document.getElementById('textLines'); 
+  var txts = document.getElementById('textLines');
 
 var xhttpTexts = new XMLHttpRequest();
 xhttpTexts.onreadystatechange = function() {
@@ -222,7 +245,7 @@ xhttpTexts.setRequestHeader("Content-Type", "application/json");
 xhttpTexts.send(JSON.stringify({"jsonrpc": "2.0", "method": "get_text", "id":1, "params": [] }));
 
 
-      var func = function() { 
+      var func = function() {
                     if (textTimer['textLines'] !== undefined) {
                         clearTimeout(textTimer['textLines']);
                     }
@@ -241,8 +264,8 @@ xhttpTexts.send(JSON.stringify({"jsonrpc": "2.0", "method": "get_text", "id":1, 
           }
 	var oneLine = txts.value.replace(/\n|\./g, '|');
 	document.getElementById('counter').innerHTML =  oneLine.split('|').length;
-        xmlhttpNames.send(JSON.stringify({"jsonrpc": "2.0", "method": "set_text", "id":1, "params": [oneLine]}));	
-        }, 1000);
+        xmlhttpNames.send(JSON.stringify({"jsonrpc": "2.0", "method": "set_text", "id":1, "params": [oneLine]}));
+        }, 10000);
       }
 
       txts.onkeyup = func;
